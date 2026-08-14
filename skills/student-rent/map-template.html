@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>毕业生租房地图</title>
+  <style>
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #map { width: 100%; height: 100%; }
+    /* 公司标记 */
+    .company-marker {
+      display: inline-block; padding: 4px 10px;
+      background: #1e88e5; color: #fff; border-radius: 4px;
+      font-size: 12px; white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    }
+    /* 房源标记 */
+    .house-marker {
+      display: inline-block; padding: 4px 8px;
+      background: #ff5722; color: #fff; border-radius: 4px;
+      font-size: 11px; white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    }
+    /* 信息窗 */
+    .info-card {
+      max-width: 220px; padding: 8px 10px;
+      font-size: 12px; line-height: 1.6; color: #333;
+    }
+    .info-card b { color: #1e88e5; }
+    /* 图例面板 */
+    #legend {
+      position: absolute; top: 12px; right: 12px; z-index: 999;
+      background: rgba(255,255,255,.95); border-radius: 8px;
+      padding: 10px 12px; font-size: 12px; color: #333;
+      box-shadow: 0 2px 10px rgba(0,0,0,.15); max-width: 260px;
+    }
+    #legend h4 { margin: 0 0 6px; font-size: 13px; }
+    #legend .row { display: flex; align-items: center; margin: 3px 0; }
+    #legend .dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex: none; }
+    #legend .dot.c { background: #1e88e5; }
+    #legend .dot.h { background: #ff5722; }
+    #legend .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="legend"></div>
+
+  <script>
+    // 可选：仅当你的 key 强制要求安全密钥时，取消注释并替换占位。
+    // 本套件实测：当前 key 无需安全密钥即可正常渲染，默认整段关闭。
+    // window._AMapSecurityConfig = { securityJsCode: '__AMAP_SECURITY_CODE__' };
+  </script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=__AMAP_KEY__"></script>
+
+  <script>
+    // 运行时由 agent 注入的数据：把 __MAP_DATA__ 字面量替换为 JSON 对象
+    window.__MAP_DATA__ = __MAP_DATA__;
+
+    (function () {
+      var DATA = window.__MAP_DATA__ || {};
+      var map = new AMap.Map('map', {
+        zoom: 12,
+        center: DATA.center || [116.397, 39.909],
+        viewMode: '2D',
+        resizeEnable: true
+      });
+
+      var overlays = [];
+
+      // 公司/学校点
+      if (DATA.company && DATA.company.lnglat) {
+        var cm = new AMap.Marker({
+          position: DATA.company.lnglat,
+          content: '<div class="company-marker">' + (DATA.company.name || '公司/学校') + '</div>',
+          anchor: 'center',
+          zIndex: 120
+        });
+        map.add(cm);
+        overlays.push(cm);
+      }
+
+      // 房源点
+      (DATA.houses || []).forEach(function (h, i) {
+        var label = h.label || ('房源' + (i + 1));
+        var m = new AMap.Marker({
+          position: h.lnglat,
+          content: '<div class="house-marker">' + label + '</div>',
+          anchor: 'bottom-center',
+          zIndex: 110
+        });
+        map.add(m);
+        overlays.push(m);
+        if (h.info) {
+          m.on('click', function () {
+            var info = new AMap.InfoWindow({
+              content: '<div class="info-card"><b>' + (h.name || '房源') + '</b><br>' + h.info + '</div>',
+              offset: new AMap.Pixel(0, -28)
+            });
+            info.open(map, h.lnglat);
+          });
+        }
+      });
+
+      // 通勤圈（半径示意）
+      if (DATA.commuteCircle && DATA.commuteCircle.radius && DATA.company && DATA.company.lnglat) {
+        var circle = new AMap.Circle({
+          center: DATA.company.lnglat,
+          radius: DATA.commuteCircle.radius,
+          strokeColor: '#1e88e5',
+          strokeWeight: 1.5,
+          strokeOpacity: 0.5,
+          fillColor: '#1e88e5',
+          fillOpacity: 0.06
+        });
+        map.add(circle);
+      }
+
+      // 通勤路线折线
+      (DATA.routes || []).forEach(function (r) {
+        var poly = new AMap.Polyline({
+          path: r,
+          strokeColor: '#ff5722',
+          strokeWeight: 4,
+          strokeOpacity: 0.75,
+          showDir: true
+        });
+        map.add(poly);
+      });
+
+      // 图例
+      var legendHtml = '<h4>图例</h4>';
+      if (DATA.company && DATA.company.name) {
+        legendHtml += '<div class="row"><span class="dot c"></span><span class="text">' + DATA.company.name + '</span></div>';
+      }
+      (DATA.houses || []).forEach(function (h) {
+        legendHtml += '<div class="row"><span class="dot h"></span><span class="text">' + (h.label || h.name || '房源') + '</span></div>';
+      });
+      if (!(DATA.houses || []).length && !(DATA.company && DATA.company.name)) {
+        legendHtml += '<div class="text">暂无数据</div>';
+      }
+      document.getElementById('legend').innerHTML = legendHtml;
+
+      // 自适应视野
+      if (overlays.length) {
+        map.setFitView(overlays, false, [60, 60, 60, 60]);
+      }
+    })();
+  </script>
+</body>
+</html>

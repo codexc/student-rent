@@ -10,13 +10,19 @@
 - **地图可视化**：高德 JS API 生成交互地图，标出公司点、房源点、通勤圈、路线
 - **避坑指南**：二房东、黑中介、阴阳合同、押金、甲醛等毕业生高频坑
 
-## 安装
+## 一句话安装
+
+对任意 AI 助手（Claude Code / Codex / WorkBuddy / 龙虾等）说一句话即可：
+
+> 帮我安装 codexc/student-rent 这个技能：`npx skills add codexc/student-rent -g -y`
+
+或者自己直接运行：
 
 ```bash
-npx skills add <你的GitHub用户名>/student-rent
+npx skills add codexc/student-rent -g -y
 ```
 
-> 把 `<你的GitHub用户名>` 换成你的 GitHub 用户名（本仓库名）。
+装好后，首次找房/画地图时会引导你配置两个 key（贝壳 MCP + 高德 `AMAP_JS_KEY`），见下方说明。
 
 ## 安装后需配置两项依赖
 
